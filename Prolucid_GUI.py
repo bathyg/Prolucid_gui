@@ -58,8 +58,10 @@ class ProLuCID_GUI(wx.Frame):
         self.button_save = wx.Button(self, wx.ID_ANY, _("Save parameters ..."))
         self.Bind(wx.EVT_BUTTON, self.SaveParams, self.button_save)
         self.button_load = wx.Button(self, wx.ID_ANY, _("Load parameters ..."))
-        self.text_ctrl_21 = wx.TextCtrl(self, wx.ID_ANY, "")
+        self.Bind(wx.EVT_BUTTON, self.LoadParams, self.button_load)
+        self.text_save_folder = wx.TextCtrl(self, wx.ID_ANY, "")
         self.button_save_path = wx.Button(self, wx.ID_ANY, _("..."))
+        self.Bind(wx.EVT_BUTTON, self.SavePath, self.button_save_path)
         self.button_run_prolucid = wx.Button(self, wx.ID_ANY, _("Run ProLuCID and DTASelect"))
         self.button_rerun_dta = wx.Button(self, wx.ID_ANY, _("Re-run DTASelect only"))
 
@@ -166,7 +168,7 @@ class ProLuCID_GUI(wx.Frame):
         sizer_1.Add(sizer_14, 1, wx.EXPAND, 0)
         label_18 = wx.StaticText(self, wx.ID_ANY, _("Result file output folder:"), style=wx.ALIGN_CENTER)
         sizer_15.Add(label_18, 1, wx.ALIGN_CENTER, 0)
-        sizer_15.Add(self.text_ctrl_21, 3, wx.ALIGN_CENTER, 0)
+        sizer_15.Add(self.text_save_folder, 3, wx.ALIGN_CENTER, 0)
         sizer_15.Add(self.button_save_path, 0, wx.ALIGN_CENTER, 0)
         sizer_1.Add(sizer_15, 1, wx.EXPAND, 0)
         sizer_16.Add(self.button_run_prolucid, 1, wx.ALIGN_CENTER, 0)
@@ -262,11 +264,53 @@ class ProLuCID_GUI(wx.Frame):
         params_dict['FDR_level'] = self.radio_box_FDR_level.GetSelection()
         params_dict['FDR_filter'] = self.text_FDR_filter.GetValue()
 
-        print params_dict
 
         with open(paths[0],'wb') as file_out:
             file_out.write(json.dumps(params_dict))
 
+    def LoadParams(self, event):
+        with wx.FileDialog(
+                self, message="Choose a file",
+                defaultFile="",
+                wildcard="Params file (*.prolucid_params)|*.prolucid_params|" \
+                         "All files (*.*)|*.*",
+                style=wx.FD_OPEN | wx.FD_CHANGE_DIR
+        ) as dlg:
+            if dlg.ShowModal() == wx.ID_CANCEL:
+                return
+            paths = dlg.GetPaths()
+
+        params_dict = json.load(open(paths[0],'rb'))
+
+        self.text_java.SetValue(params_dict['java_path'])
+        self.text_fasta.SetValue(params_dict['fasta_path'])
+        self.text_precursor_ppm.SetValue(params_dict['precursor_ppm'])
+        self.text_num_isotope.SetValue(params_dict['num_isotope'])
+        self.text_min_mass.SetValue(params_dict['min_mass'])
+        self.text_max_mass.SetValue(params_dict['max_mass'])
+        self.text_protease.SetValue(params_dict['protease'])
+        self.text_cleave_residue.SetValue(params_dict['cleave_residue'])
+        self.combo_box_enzyme_specificity.SetSelection(params_dict['enzyme_spec'])
+        self.text_max_miss_cleave.SetValue(params_dict['max_miss_cleave'])
+        self.text_stat_mod.SetValue(params_dict['stat_mod'])
+        self.combo_box_diff_mod.SetSelection(params_dict['diff_mod'])
+        self.text_c_term_stat_mod.SetValue(params_dict['c_term_stat_mod'])
+        self.text_n_term_stat_mod.SetValue(params_dict['n_term_stat_mod'])
+        self.text_DTA_min_num_peptide.SetValue(params_dict['DTA_min_num_peptide'])
+        self.combo_box_DTA_ends.SetSelection(params_dict['DTA_min_num_tryptic_end'])
+        self.radio_box_FDR_level.SetSelection(params_dict['FDR_level'])
+        self.text_FDR_filter.SetValue(params_dict['FDR_filter'])
+
+    def SavePath(self,event):
+        with wx.DirDialog(
+                self, "Choose input directory", "",
+                           wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
+        ) as dlg:
+            if dlg.ShowModal() == wx.ID_CANCEL:
+                return
+            path = dlg.GetPath()
+        print path
+        self.text_save_folder.SetValue(path)
 
 # end of class ProLuCID_GUI
 
