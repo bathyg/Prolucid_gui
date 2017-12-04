@@ -6,20 +6,25 @@
 
 import wx
 import json
-
+import StringIO
 # begin wxGlade: dependencies
 import gettext
+import shutil, os
+import run_prolucid
+import base64
 
 # end wxGlade
 
 # begin wxGlade: extracode
 # end wxGlade
-default_params_dict = {'java_path':'', 'fasta_path':'', 'precursor_ppm': '50', 'num_isotope': '3', 'min_mass': '600',
+default_params_dict = {'java_path': '', 'fasta_path': '', 'precursor_ppm': '50', 'num_isotope': '3', 'min_mass': '600',
                        'max_mass': '6000', 'protease': 'trypsin', 'cleave_residue': 'KR',
                        'enzyme_spec': 2, 'max_miss_cleave': '2', 'stat_mod': '57.02146 C',
                        'diff_mod': 0, 'c_term_stat_mod': '', 'n_term_stat_mod': '',
                        'DTA_min_num_peptide': '2', 'DTA_min_num_tryptic_end': 2, 'FDR_level': 0,
-                       'FDR_filter': '0.05'}    #FDR_level 0 protein, 1 peptide, 2 spectrum
+                       'FDR_filter': '0.05'}  # FDR_level 0 protein, 1 peptide, 2 spectrum
+
+FDR_level_dict = {1: 'peptide', 0: 'protein', 2: 'spectrum'}
 
 
 class ProLuCID_GUI(wx.Frame):
@@ -63,7 +68,9 @@ class ProLuCID_GUI(wx.Frame):
         self.button_save_path = wx.Button(self, wx.ID_ANY, _("..."))
         self.Bind(wx.EVT_BUTTON, self.SavePath, self.button_save_path)
         self.button_run_prolucid = wx.Button(self, wx.ID_ANY, _("Run ProLuCID and DTASelect"))
+        self.Bind(wx.EVT_BUTTON, self.RunProlucid, self.button_run_prolucid)
         self.button_rerun_dta = wx.Button(self, wx.ID_ANY, _("Re-run DTASelect only"))
+        self.Bind(wx.EVT_BUTTON, self.RunDTA, self.button_rerun_dta)
 
         self.__set_properties()
         self.__do_layout()
@@ -244,11 +251,11 @@ class ProLuCID_GUI(wx.Frame):
                 return
             paths = dlg.GetPaths()
 
-        params_dict={}
-        params_dict['java_path']=self.text_java.GetValue()
-        params_dict['fasta_path']=self.text_fasta.GetValue()
-        params_dict['precursor_ppm']=self.text_precursor_ppm.GetValue()
-        params_dict['num_isotope']=self.text_num_isotope.GetValue()
+        params_dict = {}
+        params_dict['java_path'] = self.text_java.GetValue()
+        params_dict['fasta_path'] = self.text_fasta.GetValue()
+        params_dict['precursor_ppm'] = self.text_precursor_ppm.GetValue()
+        params_dict['num_isotope'] = self.text_num_isotope.GetValue()
         params_dict['min_mass'] = self.text_min_mass.GetValue()
         params_dict['max_mass'] = self.text_max_mass.GetValue()
         params_dict['protease'] = self.text_protease.GetValue()
@@ -256,7 +263,7 @@ class ProLuCID_GUI(wx.Frame):
         params_dict['enzyme_spec'] = self.combo_box_enzyme_specificity.GetSelection()
         params_dict['max_miss_cleave'] = self.text_max_miss_cleave.GetValue()
         params_dict['stat_mod'] = self.text_stat_mod.GetValue()
-        params_dict['diff_mod'] = self.combo_box_diff_mod.GetSelection()
+        params_dict['diff_mod'] = self.combo_box_diff_mod.GetValue()
         params_dict['c_term_stat_mod'] = self.text_c_term_stat_mod.GetValue()
         params_dict['n_term_stat_mod'] = self.text_n_term_stat_mod.GetValue()
         params_dict['DTA_min_num_peptide'] = self.text_DTA_min_num_peptide.GetValue()
@@ -264,8 +271,7 @@ class ProLuCID_GUI(wx.Frame):
         params_dict['FDR_level'] = self.radio_box_FDR_level.GetSelection()
         params_dict['FDR_filter'] = self.text_FDR_filter.GetValue()
 
-
-        with open(paths[0],'wb') as file_out:
+        with open(paths[0], 'wb') as file_out:
             file_out.write(json.dumps(params_dict))
 
     def LoadParams(self, event):
@@ -280,7 +286,7 @@ class ProLuCID_GUI(wx.Frame):
                 return
             paths = dlg.GetPaths()
 
-        params_dict = json.load(open(paths[0],'rb'))
+        params_dict = json.load(open(paths[0], 'rb'))
 
         self.text_java.SetValue(params_dict['java_path'])
         self.text_fasta.SetValue(params_dict['fasta_path'])
@@ -293,7 +299,7 @@ class ProLuCID_GUI(wx.Frame):
         self.combo_box_enzyme_specificity.SetSelection(params_dict['enzyme_spec'])
         self.text_max_miss_cleave.SetValue(params_dict['max_miss_cleave'])
         self.text_stat_mod.SetValue(params_dict['stat_mod'])
-        self.combo_box_diff_mod.SetSelection(params_dict['diff_mod'])
+        self.combo_box_diff_mod.SetValue(params_dict['diff_mod'])
         self.text_c_term_stat_mod.SetValue(params_dict['c_term_stat_mod'])
         self.text_n_term_stat_mod.SetValue(params_dict['n_term_stat_mod'])
         self.text_DTA_min_num_peptide.SetValue(params_dict['DTA_min_num_peptide'])
@@ -301,16 +307,96 @@ class ProLuCID_GUI(wx.Frame):
         self.radio_box_FDR_level.SetSelection(params_dict['FDR_level'])
         self.text_FDR_filter.SetValue(params_dict['FDR_filter'])
 
-    def SavePath(self,event):
+    def SavePath(self, event):
         with wx.DirDialog(
                 self, "Choose input directory", "",
-                           wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
+                        wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
         ) as dlg:
             if dlg.ShowModal() == wx.ID_CANCEL:
                 return
             path = dlg.GetPath()
-        print path
+        # print path
         self.text_save_folder.SetValue(path)
+
+    def RunProlucid(self, event):
+        ms2_files = [i for i in self.text_ms2s.GetValue().split(';') if i.endswith('.ms2')]
+        # print ms2_files
+        if len(ms2_files) > 0:
+            search_dir = os.path.dirname(ms2_files[0])
+            os.chdir(search_dir)
+            with open('search.xml', 'wb') as search_xml:
+                search_xml.write('<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!--Parameters for ProLuCID database search-->\n')
+                search_xml.write('<parameters>\n')
+                search_xml.write('<database>\n<database_name>%s</database_name>\n<is_indexed>false</is_indexed>\n</database>\n' % self.text_fasta.GetValue())
+                search_xml.write(
+                    '<search_mode>\n<primary_score_type>1</primary_score_type>\n<secondary_score_type>2</secondary_score_type>\n<locus_type>1</locus_type>\n<charge_disambiguation>0</charge_disambiguation>\n<atomic_enrichement>0</atomic_enrichement>\n<min_match>0</min_match>\n<peak_rank_threshold>200</peak_rank_threshold>\n<candidate_peptide_threshold>500</candidate_peptide_threshold>\n<num_output>5</num_output>\n<is_decharged>0</is_decharged>\n<fragmentation_method>CID</fragmentation_method>\n<multistage_activation_mode>0</multistage_activation_mode>\n<preprocess>1</preprocess>\n</search_mode>\n')
+                search_xml.write(
+                    '<isotopes>\n<precursor>mono</precursor>\n<fragment>mono</fragment>\n<num_peaks>%s</num_peaks>\n</isotopes>\n<tolerance>\n<precursor_high>3000</precursor_high>\n<precursor_low>3000</precursor_low>\n<precursor>%s</precursor>\n<fragment>600</fragment>\n</tolerance>\n' % (
+                        self.text_num_isotope.GetValue(), self.text_precursor_ppm.GetValue()))
+                search_xml.write('<precursor_mass_limits>\n<minimum>%s</minimum>\n<maximum>%s</maximum>\n</precursor_mass_limits>\n' % (
+                    self.text_min_mass.GetValue(), self.text_max_mass.GetValue()))
+                search_xml.write('<precursor_charge_limits>\n<minimum>0</minimum>\n<maximum>1000</maximum>\n</precursor_charge_limits>\n')
+                search_xml.write('<peptide_length_limits>\n<minimum>6</minimum>\n</peptide_length_limits>\n')
+                search_xml.write('<num_peak_limits>\n<minimum>25</minimum>\n<maximum>5000</maximum>\n</num_peak_limits>\n<max_num_diffmod>5</max_num_diffmod>\n')
+                search_xml.write('<modifications>\n<display_mod>0</display_mod>\n')
+                if len(self.text_n_term_stat_mod.GetValue()) > 0:
+                    search_xml.write(
+                        '<n_term>\n<static_mod>\n<symbol>*</symbol>\n<mass_shift/>\n</static_mod>\n<diff_mods>\n<diff_mod>\n<symbol>*</symbol>\n<mass_shift>%s</mass_shift>\n</diff_mod>\n</diff_mods>\n</n_term>\n' % self.text_n_term_stat_mod.GetValue())
+                else:
+                    search_xml.write(
+                        '<n_term>\n<static_mod>\n<symbol>*</symbol>\n<mass_shift/>\n</static_mod>\n<diff_mods>\n<diff_mod>\n<symbol>*</symbol>\n<mass_shift>%s</mass_shift>\n</diff_mod>\n</diff_mods>\n</n_term>\n' % '0.0')
+                if len(self.text_c_term_stat_mod.GetValue()) > 0:
+                    search_xml.write(
+                        '<c_term>\n<static_mod>\n<symbol>*</symbol>\n<mass_shift/>\n</static_mod>\n<diff_mods>\n<diff_mod>\n<symbol>*</symbol>\n<mass_shift>%s</mass_shift>\n</diff_mod>\n</diff_mods>\n</c_term>\n' % self.text_c_term_stat_mod.GetValue())
+                else:
+                    search_xml.write(
+                        '<c_term>\n<static_mod>\n<symbol>*</symbol>\n<mass_shift/>\n</static_mod>\n<diff_mods>\n<diff_mod>\n<symbol>*</symbol>\n<mass_shift>%s</mass_shift>\n</diff_mod>\n</diff_mods>\n</c_term>\n' % '0.0')
+
+                # static mods
+                search_xml.write('<static_mods>\n')
+                stat_mods = [(i.split(' ')[0], i.split(' ')[1]) for i in self.text_stat_mod.GetValue().split(';') if (len(i) > 3 and ' ' in i)]
+                for each in stat_mods:
+                    search_xml.write('<static_mod>\n<symbol>*</symbol>\n<mass_shift>%s</mass_shift>\n<residue>%s</residue>\n</static_mod>\n' % (each[0], each[1]))
+                search_xml.write('</static_mods>\n')
+                # diff mods
+                search_xml.write('<diff_mods>\n')
+                diff_mods = [(i.split(' ')[0], i.split(' ')[1]) for i in self.combo_box_diff_mod.GetValue().split(';') if (len(i) > 3 and ' ' in i)]
+                for each in diff_mods:
+                    search_xml.write('<diff_mod>\n<symbol>*</symbol>\n<mass_shift>%s</mass_shift>\n<residues>\n' % each[0])
+                    for residue in each[1]:
+                        if residue.upper() in 'ARNDCQEGHILKMFPSTWYV':
+                            search_xml.write('<residue>%s</residue>\n' % residue.upper())
+                    search_xml.write('</residues>\n</diff_mod>\n')
+                search_xml.write('</diff_mods>\n</modifications>\n')
+
+                # enzyme info
+                search_xml.write(
+                    '<enzyme_info>\n<name>%s</name>\n<specificity>%s</specificity>\n<max_num_internal_mis_cleavage>%s</max_num_internal_mis_cleavage>\n<type>true</type>\n<residues>\n' % (
+                        self.text_protease.GetValue(), self.combo_box_enzyme_specificity.GetValue()[0], self.text_max_miss_cleave.GetValue()))
+
+                cleavage_residue = [i.upper() for i in self.text_cleave_residue.GetValue() if i.upper() in 'ARNDCQEGHILKMFPSTWYV']
+                for residue in cleavage_residue:
+                    search_xml.write('<residue>%s</residue>\n' % residue)
+                search_xml.write('</residues>\n</enzyme_info>\n')
+                search_xml.write('<advanced_params>\n<scan_number>0</scan_number>\n</advanced_params>\n')
+                search_xml.write('</parameters>')
+
+            run_prolucid.write_prolucid(search_dir)
+            run_prolucid.RunProlucid(self.text_java.GetValue(), search_dir, '8G', 4, search_dir, self.text_save_folder.GetValue(), os.path.join(search_dir, 'search.xml'),
+                                     ms2_files)
+            run_prolucid.run_dtaselect(os.path.join(self.text_save_folder.GetValue(), 'Filtered_result'), self.text_save_folder.GetValue(), self.text_java.GetValue(),
+                                       self.text_DTA_min_num_peptide.GetValue(), self.combo_box_DTA_ends.GetValue()[0],
+                                       FDR_level_dict[self.radio_box_FDR_level.GetSelection()],
+                                       self.text_FDR_filter.GetValue(), self.text_fasta.GetValue())
+
+    def RunDTA(self, event):
+        run_prolucid.run_dtaselect(os.path.join(self.text_save_folder.GetValue(),
+                                                'Filtered_result_%s_%s' % (FDR_level_dict[self.radio_box_FDR_level.GetSelection()], self.text_FDR_filter.GetValue())),
+                                   self.text_save_folder.GetValue(), self.text_java.GetValue(),
+                                   self.text_DTA_min_num_peptide.GetValue(), self.combo_box_DTA_ends.GetValue()[0],
+                                   FDR_level_dict[self.radio_box_FDR_level.GetSelection()],
+                                   self.text_FDR_filter.GetValue(), self.text_fasta.GetValue())
+
 
 # end of class ProLuCID_GUI
 
