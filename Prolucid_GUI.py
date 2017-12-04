@@ -384,7 +384,9 @@ class ProLuCID_GUI(wx.Frame):
             run_prolucid.write_prolucid(search_dir)
             run_prolucid.RunProlucid(self.text_java.GetValue(), search_dir, '8G', 4, search_dir, self.text_save_folder.GetValue(), os.path.join(search_dir, 'search.xml'),
                                      ms2_files)
-            run_prolucid.run_dtaselect(os.path.join(self.text_save_folder.GetValue(), 'Filtered_result'), self.text_save_folder.GetValue(), self.text_java.GetValue(),
+            run_prolucid.run_dtaselect(os.path.join(self.text_save_folder.GetValue(),
+                                                    'Filtered_result_%s_%s' % (FDR_level_dict[self.radio_box_FDR_level.GetSelection()], self.text_FDR_filter.GetValue())),
+                                       self.text_save_folder.GetValue(), self.text_java.GetValue(),
                                        self.text_DTA_min_num_peptide.GetValue(), self.combo_box_DTA_ends.GetValue()[0],
                                        FDR_level_dict[self.radio_box_FDR_level.GetSelection()],
                                        self.text_FDR_filter.GetValue(), self.text_fasta.GetValue())
