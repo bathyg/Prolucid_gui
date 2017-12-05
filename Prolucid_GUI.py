@@ -22,7 +22,7 @@ default_params_dict = {'java_path': '', 'fasta_path': '', 'precursor_ppm': '50',
                        'enzyme_spec': 2, 'max_miss_cleave': '2', 'stat_mod': '57.02146 C',
                        'diff_mod': 0, 'c_term_stat_mod': '', 'n_term_stat_mod': '',
                        'DTA_min_num_peptide': '2', 'DTA_min_num_tryptic_end': 2, 'FDR_level': 0,
-                       'FDR_filter': '0.05'}  # FDR_level 0 protein, 1 peptide, 2 spectrum
+                       'FDR_filter': '0.05', 'java_xmx':'8G', 'java_thread':'8'}  # FDR_level 0 protein, 1 peptide, 2 spectrum
 
 FDR_level_dict = {1: 'peptide', 0: 'protein', 2: 'spectrum'}
 
@@ -41,8 +41,11 @@ class ProLuCID_GUI(wx.Frame):
         self.text_ms2s = wx.TextCtrl(self, wx.ID_ANY, "")
         self.button_ms2_path = wx.Button(self, wx.ID_ANY, _("..."))
         self.Bind(wx.EVT_BUTTON, self.onOpenMS2, self.button_ms2_path)
+        self.text_java_xmx = wx.TextCtrl(self, wx.ID_ANY, _(default_params_dict['java_xmx']))
+        self.text_java_thread = wx.TextCtrl(self, wx.ID_ANY, _(default_params_dict['java_thread']))
         self.text_precursor_ppm = wx.TextCtrl(self, wx.ID_ANY, _(default_params_dict['precursor_ppm']))
         self.text_num_isotope = wx.TextCtrl(self, wx.ID_ANY, _(default_params_dict['num_isotope']))
+
         self.text_min_mass = wx.TextCtrl(self, wx.ID_ANY, _(default_params_dict['min_mass']))
         self.text_max_mass = wx.TextCtrl(self, wx.ID_ANY, _(default_params_dict['max_mass']))
         self.text_protease = wx.TextCtrl(self, wx.ID_ANY, _(default_params_dict['protease']))
@@ -101,8 +104,10 @@ class ProLuCID_GUI(wx.Frame):
         sizer_6 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_3_1 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_3 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
+
         label_1 = wx.StaticText(self, wx.ID_ANY, _("FASTA file:"), style=wx.ALIGN_RIGHT)
         sizer_2.Add(label_1, 1, wx.ALIGN_CENTER, 0)
         sizer_2.Add(self.text_fasta, 5, wx.ALIGN_CENTER, 0)
@@ -113,6 +118,13 @@ class ProLuCID_GUI(wx.Frame):
         sizer_3.Add(self.text_java, 5, wx.ALIGN_CENTER, 0)
         sizer_3.Add(self.button_java_path, 1, wx.ALIGN_CENTER, 0)
         sizer_1.Add(sizer_3, 1, wx.EXPAND, 0)
+        label_3_1 = wx.StaticText(self, wx.ID_ANY, _("Java max memory(Xmx):"), style=wx.ALIGN_CENTER)
+        label_3_2 = wx.StaticText(self, wx.ID_ANY, _("Total threads:"), style=wx.ALIGN_CENTER)
+        sizer_3_1.Add(label_3_1, 1, wx.ALIGN_CENTER, 0)
+        sizer_3_1.Add(self.text_java_xmx, 1, wx.ALIGN_CENTER, 0)
+        sizer_3_1.Add(label_3_2, 1, wx.ALIGN_CENTER, 0)
+        sizer_3_1.Add(self.text_java_thread, 1, wx.ALIGN_CENTER, 0)
+        sizer_1.Add(sizer_3_1, 1, wx.EXPAND, 0)
         label_3 = wx.StaticText(self, wx.ID_ANY, _("MS2 file path:"), style=wx.ALIGN_RIGHT)
         sizer_4.Add(label_3, 1, wx.ALIGN_CENTER, 0)
         sizer_4.Add(self.text_ms2s, 5, wx.ALIGN_CENTER, 0)
@@ -270,6 +282,8 @@ class ProLuCID_GUI(wx.Frame):
         params_dict['DTA_min_num_tryptic_end'] = self.combo_box_DTA_ends.GetSelection()
         params_dict['FDR_level'] = self.radio_box_FDR_level.GetSelection()
         params_dict['FDR_filter'] = self.text_FDR_filter.GetValue()
+        params_dict['java_xmx'] = self.text_java_xmx.GetValue()
+        params_dict['java_thread'] = self.text_java_thread.GetValue()
 
         with open(paths[0], 'wb') as file_out:
             file_out.write(json.dumps(params_dict))
@@ -306,6 +320,8 @@ class ProLuCID_GUI(wx.Frame):
         self.combo_box_DTA_ends.SetSelection(params_dict['DTA_min_num_tryptic_end'])
         self.radio_box_FDR_level.SetSelection(params_dict['FDR_level'])
         self.text_FDR_filter.SetValue(params_dict['FDR_filter'])
+        self.text_java_xmx.SetValue(params_dict['java_xmx'])
+        self.text_java_thread.SetValue(params_dict['java_thread'])
 
     def SavePath(self, event):
         with wx.DirDialog(
@@ -382,7 +398,9 @@ class ProLuCID_GUI(wx.Frame):
                 search_xml.write('</parameters>')
 
             run_prolucid.write_prolucid(search_dir)
-            run_prolucid.RunProlucid(self.text_java.GetValue(), search_dir, '8G', 4, search_dir, self.text_save_folder.GetValue(), os.path.join(search_dir, 'search.xml'),
+            run_prolucid.write_dtaselect(self.text_save_folder.GetValue())
+            run_prolucid.RunProlucid(self.text_java.GetValue(), search_dir, self.text_java_xmx.GetValue(), int(self.text_java_thread.GetValue()), search_dir, self.text_save_folder.GetValue(),
+                                     os.path.join(search_dir, 'search.xml'),
                                      ms2_files)
             run_prolucid.run_dtaselect(os.path.join(self.text_save_folder.GetValue(),
                                                     'Filtered_result_%s_%s' % (FDR_level_dict[self.radio_box_FDR_level.GetSelection()], self.text_FDR_filter.GetValue())),
@@ -390,8 +408,11 @@ class ProLuCID_GUI(wx.Frame):
                                        self.text_DTA_min_num_peptide.GetValue(), self.combo_box_DTA_ends.GetValue()[0],
                                        FDR_level_dict[self.radio_box_FDR_level.GetSelection()],
                                        self.text_FDR_filter.GetValue(), self.text_fasta.GetValue())
+            os.chdir(search_dir)
+            shutil.move('search.xml', self.text_save_folder.GetValue())
 
     def RunDTA(self, event):
+        run_prolucid.write_dtaselect(self.text_save_folder.GetValue())
         run_prolucid.run_dtaselect(os.path.join(self.text_save_folder.GetValue(),
                                                 'Filtered_result_%s_%s' % (FDR_level_dict[self.radio_box_FDR_level.GetSelection()], self.text_FDR_filter.GetValue())),
                                    self.text_save_folder.GetValue(), self.text_java.GetValue(),
