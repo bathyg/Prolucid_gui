@@ -73,7 +73,7 @@ The range of allowed precursor mass in Dalton.
 
 ## Authors
 
-* **Yu (Tom) Gao** - *@Yates Lab* - [My website](https://www.pepchem.org)
+* **Yu (Tom) Gao** - *@Yates Lab* - [My website](http://www.pepchem.org)
 
 Email me if you have any question [email me](mailto:bathygao@gmail.com).
 
