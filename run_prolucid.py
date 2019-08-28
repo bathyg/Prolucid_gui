@@ -42,6 +42,8 @@ def run_dtaselect(result_dir, sqt_input_dir, java_path, peptide_per_protein, try
     run_file_list(file_list, sqt_input_dir, java_path,os.path.join(sqt_input_dir,'DTASelect2'),peptide_per_protein, tryptic_ends_per_peptide, fdr_level, filter_fdr, fasta_path)
     for each in glob.glob(os.path.join(sqt_input_dir,'*.dta')):
         shutil.move(each,result_dir)
+    for each in glob.glob(os.path.join(sqt_input_dir,'*.html')):
+        shutil.move(each,result_dir)
     shutil.rmtree(os.path.join(sqt_input_dir,'DTASelect2'))
     print "DTASelec2 finished, total time used:", time.clock()-start
 

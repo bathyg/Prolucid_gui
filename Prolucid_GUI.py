@@ -409,7 +409,10 @@ class ProLuCID_GUI(wx.Frame):
                                        FDR_level_dict[self.radio_box_FDR_level.GetSelection()],
                                        self.text_FDR_filter.GetValue(), self.text_fasta.GetValue())
             os.chdir(search_dir)
-            shutil.move('search.xml', self.text_save_folder.GetValue())
+            try:
+                shutil.move('search.xml', self.text_save_folder.GetValue())
+            except:
+                print "error moving search.xml, maybe your result folder is the same as ms2 file?"
 
     def RunDTA(self, event):
         run_prolucid.write_dtaselect(self.text_save_folder.GetValue())
