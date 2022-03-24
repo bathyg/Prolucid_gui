@@ -27,7 +27,7 @@ On windows:
 
 1. Double click Prolucid_GUI.exe
 2. Click "..." on the right side of "FASTA file:" to specify your database file, here we use "UniProt_human_with_reversed_sequence.fasta"  
-3. Click "..." on the right side of "Java path:" to specify your java.exe location, it is typically at "C:\Program Files\Java\jre1.X.X\bin\java.exe"
+3. Click "..." on the right side of "Java path:" to specify your java.exe location (note: try to use the x64 version instead of the x86 version), it is typically at "C:\Program Files\Java\jre1.X.X\bin\java.exe"
 4. Click "..." on the right side of "MS2 file path:" to select all MS2 files that you want to search. Here we select "example.ms2". You can select multiple MS2 files for search, each MS2 file will be separated by ';' and you can edit it manually.
 5. Set all the parameters, see the "Parameters" section for details. Or you can simply click "Load parameters ..." to load previously saved parameters, here we can load "default_trypsin.prolucid_params" file to set default parameters.
 6. Click "..." on the right side of "Result file output folder:" to specify a folder to store search results.
