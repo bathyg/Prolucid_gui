@@ -57,10 +57,8 @@ def parse_fasta(file_name):
                 sequence+=line.rstrip()
         protein_dict[protein_name[1]] = [protein_name[0], protein_name[2], sequence]
 
+
 def cleave(sequence, rule, missed_cleavages=0, overlap=False):
-    """
-    Docstring omitted here for brevity.
-    """
     peptides = set()
     cleavage_sites = deque([0], maxlen=missed_cleavages+2)
     for i in chain(map(lambda x: x.end(), re.finditer(rule, sequence)),
@@ -71,10 +69,29 @@ def cleave(sequence, rule, missed_cleavages=0, overlap=False):
         if overlap and i not in {0, None}:
             peptides.update(
                     cleave(sequence[i:], rule, missed_cleavages, overlap))
-
     if '' in peptides:
         peptides.remove('')
     return peptides
+
+
+def cleave_semi(sequence, rule, missed_cleavages=0):
+    peptide_list=cleave(sequence, rule, missed_cleavages=missed_cleavages)
+    semi_specific_set = set()
+    for each in peptide_list:
+        semi_specific_set.add(each)
+        if each.startswith('MMK'):
+            for i in range(len(each)):
+                semi_specific_set.add(each[i:])
+        elif each.endswith('GEDL'):
+            for i in range(len(each)):
+                semi_specific_set.add(each[:i])
+        else:
+            for i in range(len(each)):
+                semi_specific_set.add(each[:i])
+                semi_specific_set.add(each[i:])
+    semi_specific_set.remove('')
+    return semi_specific_set
+
 
 def cut_peptide_sequence(sequence,cut_list,nocut_list):
     #cut_sequence=filter(None,re.split('([A-JL-QS-Z]+[KR])',sequence))
@@ -88,5 +105,13 @@ if __name__=="__main__":
     #file_name='uniprot_human_2018_04_27.fasta'
     #parsed_fasta=parse_fasta(file_name)
     #print parsed_fasta['C9JX34']
-    print list(cleave('MMKRPQLHRMRQLAQTGSLGRTKPETAEFLGEDL','([KR](?=[^P]))',missed_cleavages=2))
+    peptide_list = list(cleave('MMKRPQLHRMRQLAQTGSLGRTKPETAEFLGEDL','([KR](?=[^P]))|((?<=W)K(?=P))|((?<=M)R(?=P))',missed_cleavages=2))
+
+    peptide_list = ['RPQLHR', 'QLAQTGSLGR', 'TKPETAEFLGEDL', 'MMKRPQLHRMR', 'QLAQTGSLGRTKPETAEFLGEDL', 'RPQLHRMR',
+                    'MMKRPQLHR', 'MRQLAQTGSLGRTKPETAEFLGEDL', 'MMK', 'MR', 'RPQLHRMRQLAQTGSLGR', 'MRQLAQTGSLGR']
+
+    print(peptide_list)
     #print cut_peptide_sequence('MVDYYEVLGVQRHASPEDIKKAYRKLALKWHPDKNPENKEEAERKFKQVAEAYEVLSDAKKRDIYD',[],[])
+
+    print(sorted(list(semi_specific_set)))
+    print(len(semi_specific_set))
