@@ -1,6 +1,6 @@
-# ProLuCID GUI Python 3 Rewrite
+# ProLuCID GUI Python 3 update
 
-This folder contains a clean Python 3 rewrite of the legacy `Prolucid_gui` project.
+This folder contains a clean Python 3 rewrite of the legacy `Prolucid_gui` project. Functions stay the same.
 
 The rewrite keeps the same workflow:
 
